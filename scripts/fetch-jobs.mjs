@@ -222,6 +222,9 @@ function renderHtml(jobs, generatedAt) {
   header { max-width: 900px; margin: 0 auto; padding: 2.5rem 1.25rem 1rem; }
   h1 { font-size: 1.75rem; margin: 0 0 0.25rem; }
   .subtitle { color: var(--muted); margin: 0 0 1.25rem; }
+  .section-nav { display: flex; flex-wrap: wrap; gap: 0.6rem 1.25rem; margin: 0 0 1.25rem; }
+  .section-nav a { color: var(--accent); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+  .section-nav a:hover { text-decoration: underline; }
   .controls { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
   .controls input, .controls select {
     padding: 0.5rem 0.75rem; border-radius: 0.5rem; border: 1px solid var(--border);
@@ -284,6 +287,10 @@ function renderHtml(jobs, generatedAt) {
 <header>
   <h1>DevSecOps, Cybersecurity &amp; GRC Jobs — Ireland</h1>
   <p class="subtitle">Open roles in DevOps, DevSecOps, cybersecurity, cloud security, SRE, GRC, and risk management. Rebuilt daily by a GitHub Action.</p>
+  <nav class="section-nav">
+    <a href="#grc-section">Jump to GRC, IT Audit &amp; Compliance ↓</a>
+    <a href="#devops-section">Jump to DevOps, SRE &amp; Cloud ↓</a>
+  </nav>
   <div class="controls">
     <input id="search" type="search" placeholder="Filter by title, company, location…">
     <select id="typeFilter">
