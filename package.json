@@ -1,0 +1,13 @@
+{
+  "name": "grc-job-watch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Daily-updated list of GRC / AI compliance / risk management jobs in Ireland, built by a GitHub Action and published to GitHub Pages.",
+  "scripts": {
+    "build": "node scripts/fetch-jobs.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
