@@ -9,5 +9,9 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
+    "resend": "^6.25.0"
   }
 }

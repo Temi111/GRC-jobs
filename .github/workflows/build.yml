@@ -29,6 +29,11 @@ jobs:
       - name: Fetch jobs and build site
         env:
           JOOBLE_KEY: ${{ secrets.JOOBLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CANDIDATE_PROFILE: ${{ secrets.CANDIDATE_PROFILE }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFY_EMAIL: ${{ secrets.NOTIFY_EMAIL }}
+          NOTIFY_FROM_EMAIL: ${{ secrets.NOTIFY_FROM_EMAIL }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3

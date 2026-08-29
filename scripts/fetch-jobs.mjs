@@ -1,5 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { draftCoverNotes } from "./cover-letter.mjs";
+import { emailStrongMatches } from "./notify-email.mjs";
+
+const PAGES_URL = "https://temi111.github.io/GRC-jobs/";
 
 const JOOBLE_KEY = process.env.JOOBLE_KEY;
 
@@ -16,6 +20,7 @@ if (!JOOBLE_KEY) {
 // CISA/AWS DevOps Professional background.
 const SEARCH_TERMS = [
   "GRC",
+  "GRC Analyst",
   "AI compliance",
   "risk management",
   "third party risk",
@@ -23,8 +28,11 @@ const SEARCH_TERMS = [
   "DevOps Engineer",
   "DevSecOps",
   "Cybersecurity Engineer",
+  "Cybersecurity Consultant",
   "Site Reliability Engineer",
   "Cloud Security Engineer",
+  "IT Audit",
+  "IT Auditor",
 ];
 
 const LOCATION = "Ireland";
@@ -275,6 +283,9 @@ async function main() {
 
   const generatedAt = new Date().toISOString();
 
+  // The public site (dist/) never includes cover-letter drafts or anything
+  // candidate-specific beyond the job listings themselves — it's served
+  // publicly via GitHub Pages. Drafts only go out over private email below.
   await fs.mkdir("dist", { recursive: true });
   await fs.writeFile(
     path.join("dist", "data.json"),
@@ -283,6 +294,9 @@ async function main() {
   await fs.writeFile(path.join("dist", "index.html"), renderHtml(jobs, generatedAt));
 
   console.log(`Wrote ${jobs.length} jobs to dist/`);
+
+  const jobsWithNotes = await draftCoverNotes(jobs, process.env.CANDIDATE_PROFILE);
+  await emailStrongMatches(jobsWithNotes, PAGES_URL);
 }
 
 main().catch((err) => {
