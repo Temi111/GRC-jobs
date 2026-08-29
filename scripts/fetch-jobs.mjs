@@ -142,7 +142,10 @@ function renderHtml(jobs, generatedAt) {
         </div>
         <p class="meta">${escapeHtml(job.company)} — ${escapeHtml(job.location)}${posted ? ` · ${posted}` : ""}${job.salary ? ` · ${escapeHtml(job.salary)}` : ""}</p>
         <p class="snippet">${escapeHtml(snippet)}</p>
-        <div class="tags">${job.matchedTerms.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+        <div class="card-bottom">
+          <div class="tags">${job.matchedTerms.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+          <a class="apply-btn" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">Apply →</a>
+        </div>
       </article>`;
     })
     .join("\n");
@@ -203,11 +206,21 @@ function renderHtml(jobs, generatedAt) {
   }
   .meta { color: var(--muted); font-size: 0.85rem; margin: 0.35rem 0 0.5rem; }
   .snippet { font-size: 0.9rem; line-height: 1.5; margin: 0 0 0.6rem; color: var(--fg); opacity: 0.9; }
+  .card-bottom {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap;
+  }
   .tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
   .tag {
     background: var(--tag-bg); color: var(--muted); font-size: 0.7rem;
     padding: 0.15rem 0.5rem; border-radius: 999px;
   }
+  .apply-btn {
+    flex-shrink: 0; background: var(--accent); color: var(--accent-fg);
+    font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.9rem;
+    border-radius: 999px; text-decoration: none; white-space: nowrap;
+  }
+  .apply-btn:hover { opacity: 0.9; }
   footer { max-width: 900px; margin: 0 auto; padding: 0 1.25rem 3rem; color: var(--muted); font-size: 0.8rem; }
   .empty { color: var(--muted); padding: 2rem 0; text-align: center; }
 </style>
