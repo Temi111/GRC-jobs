@@ -35,6 +35,34 @@ const SEARCH_TERMS = [
   "IT Auditor",
 ];
 
+// Which section a job's matched terms place it in. A job can land in both
+// sections (e.g. a DevSecOps role matching both "DevSecOps" and "IT Audit").
+const GRC_TERMS = new Set([
+  "GRC",
+  "GRC Analyst",
+  "AI compliance",
+  "risk management",
+  "third party risk",
+  "cloud security assessment",
+  "Cybersecurity Consultant",
+  "IT Audit",
+  "IT Auditor",
+]);
+const DEVOPS_TERMS = new Set([
+  "DevOps Engineer",
+  "DevSecOps",
+  "Cybersecurity Engineer",
+  "Site Reliability Engineer",
+  "Cloud Security Engineer",
+]);
+
+function isGrcJob(job) {
+  return job.matchedTerms.some((t) => GRC_TERMS.has(t));
+}
+function isDevopsJob(job) {
+  return job.matchedTerms.some((t) => DEVOPS_TERMS.has(t));
+}
+
 const LOCATION = "Ireland";
 const JOOBLE_ENDPOINT = `https://jooble.org/api/${JOOBLE_KEY}`;
 
@@ -114,41 +142,58 @@ function escapeHtml(str) {
   }[c]));
 }
 
+function renderCard(job) {
+  const posted = job.created
+    ? new Date(job.created).toLocaleDateString("en-IE", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+  const snippet = job.description.length > 220
+    ? job.description.slice(0, 220).trim() + "…"
+    : job.description;
+
+  return `
+  <article class="card" data-terms="${escapeHtml(job.matchedTerms.join("|"))}" data-type="${escapeHtml(job.type)}" data-title-match="${job.titleMatch ? "1" : "0"}">
+    <div class="card-top">
+      <h2><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(job.title)}</a></h2>
+      <span class="pill-group">
+        ${job.titleMatch ? `<span class="pill pill-strong">Strong match</span>` : ""}
+        ${job.type ? `<span class="pill">${escapeHtml(job.type)}</span>` : ""}
+      </span>
+    </div>
+    <p class="meta">${escapeHtml(job.company)} — ${escapeHtml(job.location)}${posted ? ` · ${posted}` : ""}${job.salary ? ` · ${escapeHtml(job.salary)}` : ""}</p>
+    <p class="snippet">${escapeHtml(snippet)}</p>
+    <div class="card-bottom">
+      <div class="tags">${job.matchedTerms.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+      <a class="apply-btn" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">Apply →</a>
+    </div>
+  </article>`;
+}
+
+function renderSection(id, title, jobs) {
+  const cards = jobs.map(renderCard).join("\n");
+  return `
+  <section class="job-section" id="${id}">
+    <h2 class="section-title">${escapeHtml(title)} <span class="section-count">${jobs.length}</span></h2>
+    <div class="grid">
+      ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
+    </div>
+  </section>`;
+}
+
 function renderHtml(jobs, generatedAt) {
   const allTerms = [...new Set(jobs.flatMap((j) => j.matchedTerms))].sort();
   const allTypes = [...new Set(jobs.map((j) => j.type).filter(Boolean))].sort();
 
-  const cards = jobs
-    .map((job) => {
-      const posted = job.created
-        ? new Date(job.created).toLocaleDateString("en-IE", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          })
-        : "";
-      const snippet = job.description.length > 220
-        ? job.description.slice(0, 220).trim() + "…"
-        : job.description;
+  const grcJobs = jobs.filter(isGrcJob);
+  const devopsJobs = jobs.filter(isDevopsJob);
 
-      return `
-      <article class="card" data-terms="${escapeHtml(job.matchedTerms.join("|"))}" data-type="${escapeHtml(job.type)}" data-title-match="${job.titleMatch ? "1" : "0"}">
-        <div class="card-top">
-          <h2><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(job.title)}</a></h2>
-          <span class="pill-group">
-            ${job.titleMatch ? `<span class="pill pill-strong">Strong match</span>` : ""}
-            ${job.type ? `<span class="pill">${escapeHtml(job.type)}</span>` : ""}
-          </span>
-        </div>
-        <p class="meta">${escapeHtml(job.company)} — ${escapeHtml(job.location)}${posted ? ` · ${posted}` : ""}${job.salary ? ` · ${escapeHtml(job.salary)}` : ""}</p>
-        <p class="snippet">${escapeHtml(snippet)}</p>
-        <div class="card-bottom">
-          <div class="tags">${job.matchedTerms.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
-          <a class="apply-btn" href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">Apply →</a>
-        </div>
-      </article>`;
-    })
-    .join("\n");
+  const sections = [
+    renderSection("grc-section", "GRC, IT Audit & Compliance", grcJobs),
+    renderSection("devops-section", "DevOps, SRE & Cloud", devopsJobs),
+  ].join("\n");
 
   return `<!doctype html>
 <html lang="en">
@@ -184,7 +229,17 @@ function renderHtml(jobs, generatedAt) {
   }
   .controls input { flex: 1; min-width: 180px; }
   .count { color: var(--muted); font-size: 0.85rem; margin: 0 0 1.5rem; }
-  main { max-width: 900px; margin: 0 auto; padding: 0 1.25rem 3rem; display: grid; gap: 0.9rem; }
+  main { max-width: 900px; margin: 0 auto; padding: 0 1.25rem 3rem; }
+  .job-section { margin-bottom: 2.5rem; }
+  .section-title {
+    font-size: 1.15rem; margin: 0 0 1rem; padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--border); display: flex; align-items: baseline; gap: 0.5rem;
+  }
+  .section-count {
+    font-size: 0.8rem; font-weight: 600; color: var(--muted); background: var(--tag-bg);
+    padding: 0.1rem 0.55rem; border-radius: 999px;
+  }
+  .grid { display: grid; gap: 0.9rem; }
   .card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 0.9rem;
     padding: 1rem 1.15rem;
@@ -244,7 +299,7 @@ function renderHtml(jobs, generatedAt) {
   <p class="count" id="count"></p>
 </header>
 <main id="list">
-${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
+${sections}
 </main>
 <footer>
   Last updated ${escapeHtml(generatedAt)} · Source: Jooble · ${jobs.length} jobs found
