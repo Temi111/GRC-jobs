@@ -28,8 +28,7 @@ jobs:
 
       - name: Fetch jobs and build site
         env:
-          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
-          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
+          JOOBLE_KEY: ${{ secrets.JOOBLE_KEY }}
         run: npm run build
 
       - uses: actions/upload-pages-artifact@v3

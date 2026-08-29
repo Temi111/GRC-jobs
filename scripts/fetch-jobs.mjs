@@ -1,13 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const APP_ID = process.env.ADZUNA_APP_ID;
-const APP_KEY = process.env.ADZUNA_APP_KEY;
+const JOOBLE_KEY = process.env.JOOBLE_KEY;
 
-if (!APP_ID || !APP_KEY) {
+if (!JOOBLE_KEY) {
   console.error(
-    "Missing ADZUNA_APP_ID / ADZUNA_APP_KEY environment variables. " +
-      "Sign up free at https://developer.adzuna.com/ and set them as repo secrets."
+    "Missing JOOBLE_KEY environment variable. " +
+      "Sign up free at https://jooble.org/api/about and set it as a repo secret."
   );
   process.exit(1);
 }
@@ -24,38 +23,45 @@ const SEARCH_TERMS = [
   "compliance risk management",
 ];
 
-const COUNTRY = "ie";
-const RESULTS_PER_PAGE = 50;
+const LOCATION = "Ireland";
+const JOOBLE_ENDPOINT = `https://jooble.org/api/${JOOBLE_KEY}`;
+
+function stripHtml(str) {
+  return String(str ?? "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 async function fetchTerm(term) {
-  const url = new URL(
-    `https://api.adzuna.com/v1/api/jobs/${COUNTRY}/search/1`
-  );
-  url.searchParams.set("app_id", APP_ID);
-  url.searchParams.set("app_key", APP_KEY);
-  url.searchParams.set("results_per_page", String(RESULTS_PER_PAGE));
-  url.searchParams.set("what_phrase", term);
-  url.searchParams.set("sort_by", "date");
-  url.searchParams.set("content-type", "application/json");
+  const res = await fetch(JOOBLE_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ keywords: term, location: LOCATION }),
+  });
 
-  const res = await fetch(url);
   if (!res.ok) {
     console.warn(`[warn] "${term}" search failed: ${res.status} ${res.statusText}`);
     return [];
   }
+
   const data = await res.json();
-  return (data.results ?? []).map((job) => ({
-    id: job.id,
-    title: job.title?.trim(),
-    company: job.company?.display_name?.trim() ?? "Unknown company",
-    location: job.location?.display_name?.trim() ?? "Ireland",
-    url: job.redirect_url,
-    created: job.created,
-    contractType: job.contract_type ?? null, // 'permanent' | 'contract' | null
-    contractTime: job.contract_time ?? null, // 'full_time' | 'part_time' | null
-    salaryMin: job.salary_min ?? null,
-    salaryMax: job.salary_max ?? null,
-    description: job.description?.trim() ?? "",
+  return (data.jobs ?? []).map((job) => ({
+    id: String(job.id),
+    title: stripHtml(job.title),
+    company: job.company?.trim() || "Unknown company",
+    location: job.location?.trim() || "Ireland",
+    url: job.link,
+    created: job.updated,
+    type: job.type?.trim() || "",
+    salary: job.salary?.trim() || "",
+    description: stripHtml(job.snippet),
     matchedTerm: term,
   }));
 }
@@ -75,15 +81,6 @@ function dedupe(jobs) {
   return [...byId.values()];
 }
 
-function formatSalary(job) {
-  if (!job.salaryMin && !job.salaryMax) return null;
-  const fmt = (n) => `€${Math.round(n).toLocaleString("en-IE")}`;
-  if (job.salaryMin && job.salaryMax && job.salaryMin !== job.salaryMax) {
-    return `${fmt(job.salaryMin)} – ${fmt(job.salaryMax)}`;
-  }
-  return fmt(job.salaryMin || job.salaryMax);
-}
-
 function escapeHtml(str) {
   return String(str ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;",
@@ -95,11 +92,11 @@ function escapeHtml(str) {
 }
 
 function renderHtml(jobs, generatedAt) {
-  const allTags = [...new Set(jobs.flatMap((j) => j.matchedTerms))].sort();
+  const allTerms = [...new Set(jobs.flatMap((j) => j.matchedTerms))].sort();
+  const allTypes = [...new Set(jobs.map((j) => j.type).filter(Boolean))].sort();
 
   const cards = jobs
     .map((job) => {
-      const salary = formatSalary(job);
       const posted = job.created
         ? new Date(job.created).toLocaleDateString("en-IE", {
             day: "numeric",
@@ -107,21 +104,17 @@ function renderHtml(jobs, generatedAt) {
             year: "numeric",
           })
         : "";
-      const type = [job.contractType, job.contractTime]
-        .filter(Boolean)
-        .map((s) => s.replace("_", " "))
-        .join(" · ");
       const snippet = job.description.length > 220
         ? job.description.slice(0, 220).trim() + "…"
         : job.description;
 
       return `
-      <article class="card" data-terms="${escapeHtml(job.matchedTerms.join("|"))}" data-contract="${escapeHtml(job.contractType || "")}">
+      <article class="card" data-terms="${escapeHtml(job.matchedTerms.join("|"))}" data-type="${escapeHtml(job.type)}">
         <div class="card-top">
           <h2><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(job.title)}</a></h2>
-          ${type ? `<span class="pill">${escapeHtml(type)}</span>` : ""}
+          ${job.type ? `<span class="pill">${escapeHtml(job.type)}</span>` : ""}
         </div>
-        <p class="meta">${escapeHtml(job.company)} — ${escapeHtml(job.location)}${posted ? ` · ${posted}` : ""}${salary ? ` · ${escapeHtml(salary)}` : ""}</p>
+        <p class="meta">${escapeHtml(job.company)} — ${escapeHtml(job.location)}${posted ? ` · ${posted}` : ""}${job.salary ? ` · ${escapeHtml(job.salary)}` : ""}</p>
         <p class="snippet">${escapeHtml(snippet)}</p>
         <div class="tags">${job.matchedTerms.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
       </article>`;
@@ -173,7 +166,7 @@ function renderHtml(jobs, generatedAt) {
   .card h2 a:hover { color: var(--accent); text-decoration: underline; }
   .pill {
     flex-shrink: 0; background: var(--accent); color: var(--accent-fg); font-size: 0.7rem;
-    font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 999px; text-transform: capitalize;
+    font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 999px;
     white-space: nowrap;
   }
   .meta { color: var(--muted); font-size: 0.85rem; margin: 0.35rem 0 0.5rem; }
@@ -193,14 +186,13 @@ function renderHtml(jobs, generatedAt) {
   <p class="subtitle">Open roles in GRC, AI compliance, risk management, cloud assessment, and third-party risk. Rebuilt daily by a GitHub Action.</p>
   <div class="controls">
     <input id="search" type="search" placeholder="Filter by title, company, location…">
-    <select id="contractFilter">
+    <select id="typeFilter">
       <option value="">All types</option>
-      <option value="permanent">Permanent</option>
-      <option value="contract">Contract</option>
+      ${allTypes.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
     </select>
     <select id="termFilter">
       <option value="">All keywords</option>
-      ${allTags.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
+      ${allTerms.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
     </select>
   </div>
   <p class="count" id="count"></p>
@@ -209,27 +201,27 @@ function renderHtml(jobs, generatedAt) {
 ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
 </main>
 <footer>
-  Last updated ${escapeHtml(generatedAt)} · Source: Adzuna · ${jobs.length} jobs found
+  Last updated ${escapeHtml(generatedAt)} · Source: Jooble · ${jobs.length} jobs found
 </footer>
 <script>
   const search = document.getElementById('search');
-  const contractFilter = document.getElementById('contractFilter');
+  const typeFilter = document.getElementById('typeFilter');
   const termFilter = document.getElementById('termFilter');
   const cards = [...document.querySelectorAll('.card')];
   const count = document.getElementById('count');
 
   function applyFilters() {
     const q = search.value.trim().toLowerCase();
-    const contract = contractFilter.value;
+    const type = typeFilter.value;
     const term = termFilter.value;
     let visible = 0;
     for (const card of cards) {
       const text = card.textContent.toLowerCase();
       const matchesQuery = !q || text.includes(q);
-      const matchesContract = !contract || card.dataset.contract === contract;
+      const matchesType = !type || card.dataset.type === type;
       const terms = (card.dataset.terms || '').split('|');
       const matchesTerm = !term || terms.includes(term);
-      const show = matchesQuery && matchesContract && matchesTerm;
+      const show = matchesQuery && matchesType && matchesTerm;
       card.style.display = show ? '' : 'none';
       if (show) visible++;
     }
@@ -237,7 +229,7 @@ ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
   }
 
   search.addEventListener('input', applyFilters);
-  contractFilter.addEventListener('change', applyFilters);
+  typeFilter.addEventListener('change', applyFilters);
   termFilter.addEventListener('change', applyFilters);
   applyFilters();
 </script>
