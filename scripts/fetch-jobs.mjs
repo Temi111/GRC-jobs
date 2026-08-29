@@ -11,16 +11,20 @@ if (!JOOBLE_KEY) {
   process.exit(1);
 }
 
-// Search phrases covering the requested areas: GRC, AI compliance, risk
-// management, GRC ops, cloud assessment, third-party risk.
+// Search phrases tailored to a DevSecOps / Cloud Security / GRC profile:
+// Kubernetes, AWS/Azure/GCP, Terraform, ArgoCD, ISO 27001/DORA/PCI DSS,
+// CISA/AWS DevOps Professional background.
 const SEARCH_TERMS = [
   "GRC",
-  "GRC analyst",
   "AI compliance",
   "risk management",
   "third party risk",
   "cloud security assessment",
-  "compliance risk management",
+  "DevOps Engineer",
+  "DevSecOps",
+  "Cybersecurity Engineer",
+  "Site Reliability Engineer",
+  "Cloud Security Engineer",
 ];
 
 const LOCATION = "Ireland";
@@ -81,6 +85,17 @@ function dedupe(jobs) {
   return [...byId.values()];
 }
 
+// A job is a "strong" match if one of the terms that found it also appears
+// in the job title, not just somewhere in the snippet text. Snippet-only
+// matches (e.g. "risk" mentioned once in an unrelated role) are weaker.
+function markMatchStrength(jobs) {
+  return jobs.map((job) => {
+    const title = job.title.toLowerCase();
+    const titleMatch = job.matchedTerms.some((t) => title.includes(t.toLowerCase()));
+    return { ...job, titleMatch };
+  });
+}
+
 function escapeHtml(str) {
   return String(str ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;",
@@ -109,10 +124,13 @@ function renderHtml(jobs, generatedAt) {
         : job.description;
 
       return `
-      <article class="card" data-terms="${escapeHtml(job.matchedTerms.join("|"))}" data-type="${escapeHtml(job.type)}">
+      <article class="card" data-terms="${escapeHtml(job.matchedTerms.join("|"))}" data-type="${escapeHtml(job.type)}" data-title-match="${job.titleMatch ? "1" : "0"}">
         <div class="card-top">
           <h2><a href="${escapeHtml(job.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(job.title)}</a></h2>
-          ${job.type ? `<span class="pill">${escapeHtml(job.type)}</span>` : ""}
+          <span class="pill-group">
+            ${job.titleMatch ? `<span class="pill pill-strong">Strong match</span>` : ""}
+            ${job.type ? `<span class="pill">${escapeHtml(job.type)}</span>` : ""}
+          </span>
         </div>
         <p class="meta">${escapeHtml(job.company)} — ${escapeHtml(job.location)}${posted ? ` · ${posted}` : ""}${job.salary ? ` · ${escapeHtml(job.salary)}` : ""}</p>
         <p class="snippet">${escapeHtml(snippet)}</p>
@@ -126,7 +144,7 @@ function renderHtml(jobs, generatedAt) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRC & Compliance Jobs — Ireland</title>
+<title>DevSecOps, Cybersecurity & GRC Jobs — Ireland</title>
 <style>
   :root {
     --bg: #f7f7f5; --fg: #1b1b18; --muted: #6b6b63; --border: #e2e0d8;
@@ -164,10 +182,16 @@ function renderHtml(jobs, generatedAt) {
   .card h2 { font-size: 1.05rem; margin: 0; line-height: 1.35; }
   .card h2 a { color: var(--fg); text-decoration: none; }
   .card h2 a:hover { color: var(--accent); text-decoration: underline; }
+  .pill-group { display: flex; flex-wrap: wrap; gap: 0.35rem; flex-shrink: 0; }
   .pill {
-    flex-shrink: 0; background: var(--accent); color: var(--accent-fg); font-size: 0.7rem;
+    flex-shrink: 0; background: var(--tag-bg); color: var(--muted); font-size: 0.7rem;
     font-weight: 600; padding: 0.2rem 0.55rem; border-radius: 999px;
     white-space: nowrap;
+  }
+  .pill-strong { background: var(--accent); color: var(--accent-fg); }
+  .controls label {
+    display: flex; align-items: center; gap: 0.4rem; font-size: 0.85rem;
+    color: var(--muted); padding: 0.5rem 0.25rem;
   }
   .meta { color: var(--muted); font-size: 0.85rem; margin: 0.35rem 0 0.5rem; }
   .snippet { font-size: 0.9rem; line-height: 1.5; margin: 0 0 0.6rem; color: var(--fg); opacity: 0.9; }
@@ -182,8 +206,8 @@ function renderHtml(jobs, generatedAt) {
 </head>
 <body>
 <header>
-  <h1>GRC &amp; Compliance Jobs — Ireland</h1>
-  <p class="subtitle">Open roles in GRC, AI compliance, risk management, cloud assessment, and third-party risk. Rebuilt daily by a GitHub Action.</p>
+  <h1>DevSecOps, Cybersecurity &amp; GRC Jobs — Ireland</h1>
+  <p class="subtitle">Open roles in DevOps, DevSecOps, cybersecurity, cloud security, SRE, GRC, and risk management. Rebuilt daily by a GitHub Action.</p>
   <div class="controls">
     <input id="search" type="search" placeholder="Filter by title, company, location…">
     <select id="typeFilter">
@@ -194,6 +218,7 @@ function renderHtml(jobs, generatedAt) {
       <option value="">All keywords</option>
       ${allTerms.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join("")}
     </select>
+    <label><input type="checkbox" id="strongOnly"> Strong matches only</label>
   </div>
   <p class="count" id="count"></p>
 </header>
@@ -207,6 +232,7 @@ ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
   const search = document.getElementById('search');
   const typeFilter = document.getElementById('typeFilter');
   const termFilter = document.getElementById('termFilter');
+  const strongOnly = document.getElementById('strongOnly');
   const cards = [...document.querySelectorAll('.card')];
   const count = document.getElementById('count');
 
@@ -214,6 +240,7 @@ ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
     const q = search.value.trim().toLowerCase();
     const type = typeFilter.value;
     const term = termFilter.value;
+    const onlyStrong = strongOnly.checked;
     let visible = 0;
     for (const card of cards) {
       const text = card.textContent.toLowerCase();
@@ -221,7 +248,8 @@ ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
       const matchesType = !type || card.dataset.type === type;
       const terms = (card.dataset.terms || '').split('|');
       const matchesTerm = !term || terms.includes(term);
-      const show = matchesQuery && matchesType && matchesTerm;
+      const matchesStrength = !onlyStrong || card.dataset.titleMatch === '1';
+      const show = matchesQuery && matchesType && matchesTerm && matchesStrength;
       card.style.display = show ? '' : 'none';
       if (show) visible++;
     }
@@ -230,6 +258,7 @@ ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
 
   search.addEventListener('input', applyFilters);
   typeFilter.addEventListener('change', applyFilters);
+  strongOnly.addEventListener('change', applyFilters);
   termFilter.addEventListener('change', applyFilters);
   applyFilters();
 </script>
@@ -239,9 +268,10 @@ ${cards || '<p class="empty">No matching jobs found in the latest run.</p>'}
 
 async function main() {
   const results = await Promise.all(SEARCH_TERMS.map(fetchTerm));
-  const jobs = dedupe(results.flat()).sort(
-    (a, b) => new Date(b.created) - new Date(a.created)
-  );
+  const jobs = markMatchStrength(dedupe(results.flat())).sort((a, b) => {
+    if (a.titleMatch !== b.titleMatch) return a.titleMatch ? -1 : 1;
+    return new Date(b.created) - new Date(a.created);
+  });
 
   const generatedAt = new Date().toISOString();
 
