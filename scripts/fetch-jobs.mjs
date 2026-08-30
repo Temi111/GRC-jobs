@@ -25,11 +25,9 @@ const SEARCH_TERMS = [
   "risk management",
   "third party risk",
   "cloud security assessment",
-  "DevOps Engineer",
   "DevSecOps",
   "Cybersecurity Engineer",
   "Cybersecurity Consultant",
-  "Site Reliability Engineer",
   "Cloud Security Engineer",
   "IT Audit",
   "IT Auditor",
@@ -48,19 +46,17 @@ const GRC_TERMS = new Set([
   "IT Audit",
   "IT Auditor",
 ]);
-const DEVOPS_TERMS = new Set([
-  "DevOps Engineer",
+const CLOUD_SECURITY_TERMS = new Set([
   "DevSecOps",
   "Cybersecurity Engineer",
-  "Site Reliability Engineer",
   "Cloud Security Engineer",
 ]);
 
 function isGrcJob(job) {
   return job.matchedTerms.some((t) => GRC_TERMS.has(t));
 }
-function isDevopsJob(job) {
-  return job.matchedTerms.some((t) => DEVOPS_TERMS.has(t));
+function isCloudSecurityJob(job) {
+  return job.matchedTerms.some((t) => CLOUD_SECURITY_TERMS.has(t));
 }
 
 const LOCATION = "Ireland";
@@ -188,11 +184,11 @@ function renderHtml(jobs, generatedAt) {
   const allTypes = [...new Set(jobs.map((j) => j.type).filter(Boolean))].sort();
 
   const grcJobs = jobs.filter(isGrcJob);
-  const devopsJobs = jobs.filter(isDevopsJob);
+  const cloudSecurityJobs = jobs.filter(isCloudSecurityJob);
 
   const sections = [
     renderSection("grc-section", "GRC, IT Audit & Compliance", grcJobs),
-    renderSection("devops-section", "DevOps, SRE & Cloud", devopsJobs),
+    renderSection("cloud-security-section", "Cloud Security & DevSecOps", cloudSecurityJobs),
   ].join("\n");
 
   return `<!doctype html>
@@ -286,10 +282,10 @@ function renderHtml(jobs, generatedAt) {
 <body>
 <header>
   <h1>DevSecOps, Cybersecurity &amp; GRC Jobs — Ireland</h1>
-  <p class="subtitle">Open roles in DevOps, DevSecOps, cybersecurity, cloud security, SRE, GRC, and risk management. Rebuilt daily by a GitHub Action.</p>
+  <p class="subtitle">Open roles in GRC, IT audit, cloud security, DevSecOps, and risk management. Rebuilt daily by a GitHub Action.</p>
   <nav class="section-nav">
     <a href="#grc-section">Jump to GRC, IT Audit &amp; Compliance ↓</a>
-    <a href="#devops-section">Jump to DevOps, SRE &amp; Cloud ↓</a>
+    <a href="#cloud-security-section">Jump to Cloud Security &amp; DevSecOps ↓</a>
   </nav>
   <div class="controls">
     <input id="search" type="search" placeholder="Filter by title, company, location…">
