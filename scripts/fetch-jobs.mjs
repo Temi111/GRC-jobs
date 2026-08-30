@@ -25,39 +25,10 @@ const SEARCH_TERMS = [
   "risk management",
   "third party risk",
   "cloud security assessment",
-  "DevSecOps",
-  "Cybersecurity Engineer",
   "Cybersecurity Consultant",
-  "Cloud Security Engineer",
   "IT Audit",
   "IT Auditor",
 ];
-
-// Which section a job's matched terms place it in. A job can land in both
-// sections (e.g. a DevSecOps role matching both "DevSecOps" and "IT Audit").
-const GRC_TERMS = new Set([
-  "GRC",
-  "GRC Analyst",
-  "AI compliance",
-  "risk management",
-  "third party risk",
-  "cloud security assessment",
-  "Cybersecurity Consultant",
-  "IT Audit",
-  "IT Auditor",
-]);
-const CLOUD_SECURITY_TERMS = new Set([
-  "DevSecOps",
-  "Cybersecurity Engineer",
-  "Cloud Security Engineer",
-]);
-
-function isGrcJob(job) {
-  return job.matchedTerms.some((t) => GRC_TERMS.has(t));
-}
-function isCloudSecurityJob(job) {
-  return job.matchedTerms.some((t) => CLOUD_SECURITY_TERMS.has(t));
-}
 
 const LOCATION = "Ireland";
 const JOOBLE_ENDPOINT = `https://jooble.org/api/${JOOBLE_KEY}`;
@@ -183,20 +154,14 @@ function renderHtml(jobs, generatedAt) {
   const allTerms = [...new Set(jobs.flatMap((j) => j.matchedTerms))].sort();
   const allTypes = [...new Set(jobs.map((j) => j.type).filter(Boolean))].sort();
 
-  const grcJobs = jobs.filter(isGrcJob);
-  const cloudSecurityJobs = jobs.filter(isCloudSecurityJob);
-
-  const sections = [
-    renderSection("grc-section", "GRC, IT Audit & Compliance", grcJobs),
-    renderSection("cloud-security-section", "Cloud Security & DevSecOps", cloudSecurityJobs),
-  ].join("\n");
+  const sections = renderSection("grc-section", "GRC, IT Audit & Compliance", jobs);
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>DevSecOps, Cybersecurity & GRC Jobs — Ireland</title>
+<title>GRC, IT Audit & Compliance Jobs — Ireland</title>
 <style>
   :root {
     --bg: #f7f7f5; --fg: #1b1b18; --muted: #6b6b63; --border: #e2e0d8;
@@ -281,11 +246,11 @@ function renderHtml(jobs, generatedAt) {
 </head>
 <body>
 <header>
-  <h1>DevSecOps, Cybersecurity &amp; GRC Jobs — Ireland</h1>
-  <p class="subtitle">Open roles in GRC, IT audit, cloud security, DevSecOps, and risk management. Rebuilt daily by a GitHub Action.</p>
+  <h1>GRC, IT Audit &amp; Compliance Jobs — Ireland</h1>
+  <p class="subtitle">Open roles in GRC, IT audit, risk management, third-party risk, and cybersecurity consulting. Rebuilt daily by a GitHub Action.</p>
   <nav class="section-nav">
-    <a href="#grc-section">Jump to GRC, IT Audit &amp; Compliance ↓</a>
-    <a href="#cloud-security-section">Jump to Cloud Security &amp; DevSecOps ↓</a>
+    <a href="https://ie.indeed.com/jobs?q=GRC+compliance+IT+audit&amp;l=Ireland" target="_blank" rel="noopener noreferrer">Search on Indeed ↗</a>
+    <a href="https://www.linkedin.com/jobs/search/?keywords=GRC%20compliance%20IT%20audit&amp;location=Ireland" target="_blank" rel="noopener noreferrer">Search on LinkedIn ↗</a>
   </nav>
   <div class="controls">
     <input id="search" type="search" placeholder="Filter by title, company, location…">
